@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACE Process - Email Marketing Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0F172A;
+            --secondary: #F59E0B;
+            --accent: #06B6D4;
+            --analyze: #8B5CF6;
+            --create: #EC4899;
+            --elevate: #10B981;
+            --bg-dark: #020617;
+            --bg-medium: #0F172A;
+            --bg-light: #1E293B;
+            --text-primary: #F1F5F9;
+            --text-secondary: #CBD5E1;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-medium) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .dashboard-header {
+            font-family: 'Newsreader', serif;
+            font-style: italic;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--bg-light) 0%, var(--bg-medium) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.6s ease;
+        }
+
+        .stat-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border-color: var(--accent);
+        }
+
+        .kanban-column {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            min-height: 500px;
+            transition: all 0.3s ease;
+        }
+
+        .kanban-column.drag-over {
+            background: rgba(6, 182, 212, 0.1);
+            border-color: var(--accent);
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
+        }
+
+        .task-card {
+            background: linear-gradient(135deg, var(--bg-medium), #1a2332);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: move;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .task-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-color: var(--accent);
+        }
+
+        .task-card:hover::after {
+            opacity: 1;
+        }
+
+        .task-card.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .priority-high {
+            border-left: 4px solid #EF4444;
+        }
+
+        .priority-medium {
+            border-left: 4px solid var(--secondary);
+        }
+
+        .priority-low {
+            border-left: 4px solid var(--elevate);
+        }
+
+        .phase-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .phase-analyze {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--analyze);
+            border: 1px solid var(--analyze);
+        }
+
+        .phase-create {
+            background: rgba(236, 72, 153, 0.2);
+            color: var(--create);
+            border: 1px solid var(--create);
+        }
+
+        .phase-elevate {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--elevate);
+            border: 1px solid var(--elevate);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-dark);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmerProgress 2s infinite;
+        }
+
+        @keyframes shimmerProgress {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+
+        .metric-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .grid-background {
+            background-image: 
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.1;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+        }
+
+        .scroll-container {
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent) var(--bg-dark);
+        }
+
+        .scroll-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .scroll-container::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+            border-radius: 10px;
+        }
+
+        .scroll-container::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 10px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: slideIn 0.6s ease-out forwards;
+        }
+
+        .animate-delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .animate-delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .animate-delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .animate-delay-4 { animation-delay: 0.4s; opacity: 0; }
+        .animate-delay-5 { animation-delay: 0.5s; opacity: 0; }
+    </style>
+</head>
+<body>
+    <div class="grid-background"></div>
+    
+    <div class="relative z-10 max-w-[1800px] mx-auto p-6 space-y-6">
+        <!-- Header -->
+        <header class="animate-in">
+            <h1 class="dashboard-header text-5xl mb-2">ACE Process Dashboard</h1>
+            <p class="text-sm text-gray-400 font-mono">60-Day Email Marketing Implementation • Live Progress Tracking</p>
+        </header>
+
+        <!-- Dashboard Widgets -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Overall Progress -->
+            <div class="stat-card animate-in animate-delay-1">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs uppercase tracking-wider text-gray-400">Overall Progress</h3>
+                    <span class="text-2xl">📊</span>
+                </div>
+                <div class="metric-number mb-2" id="overall-progress">0%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="overall-progress-bar" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2" id="progress-subtitle">0 of 0 tasks completed</p>
+            </div>
+
+            <!-- Tasks by Status -->
+            <div class="stat-card animate-in animate-delay-2">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs uppercase tracking-wider text-gray-400">Task Distribution</h3>
+                    <span class="text-2xl">📋</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Days Remaining -->
+            <div class="stat-card animate-in animate-delay-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs uppercase tracking-wider text-gray-400">Days Remaining</h3>
+                    <span class="text-2xl">⏰</span>
+                </div>
+                <div class="metric-number mb-2" id="days-remaining">60</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="days-progress-bar" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2" id="days-subtitle">of 60-day timeline</p>
+            </div>
+
+            <!-- Phase Breakdown -->
+            <div class="stat-card animate-in animate-delay-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-xs uppercase tracking-wider text-gray-400">Phase Progress</h3>
+                    <span class="text-2xl">🎯</span>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="phase-badge phase-analyze">Analyze</span>
+                            <span id="analyze-percent">0%</span>
+                        </div>
+                        <div class="progress-bar h-2">
+                            <div class="progress-fill" id="analyze-bar" style="width: 0%; background: var(--analyze);"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="phase-badge phase-create">Create</span>
+                            <span id="create-percent">0%</span>
+                        </div>
+                        <div class="progress-bar h-2">
+                            <div class="progress-fill" id="create-bar" style="width: 0%; background: var(--create);"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="phase-badge phase-elevate">Elevate</span>
+                            <span id="elevate-percent">0%</span>
+                        </div>
+                        <div class="progress-bar h-2">
+                            <div class="progress-fill" id="elevate-bar" style="width: 0%; background: var(--elevate);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kanban Board -->
+        <div class="animate-in animate-delay-5">
+            <h2 class="text-2xl font-bold mb-4 font-serif italic">Kanban Board</h2>
+            <div class="scroll-container pb-4">
+                <div class="flex gap-4 min-w-max">
+                    <div class="w-80">
+                        <div class="kanban-column p-4" data-status="backlog">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-sm uppercase tracking-wider">📥 Backlog</h3>
+                                <span class="bg-gray-700 text-xs px-2 py-1 rounded-full" id="count-backlog">0</span>
+                            </div>
+                            <div class="space-y-2" id="column-backlog"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-80">
+                        <div class="kanban-column p-4" data-status="todo">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-sm uppercase tracking-wider">📝 To Do</h3>
+                                <span class="bg-blue-900 text-xs px-2 py-1 rounded-full" id="count-todo">0</span>
+                            </div>
+                            <div class="space-y-2" id="column-todo"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-80">
+                        <div class="kanban-column p-4" data-status="in-progress">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-sm uppercase tracking-wider">⚡ In Progress</h3>
+                                <span class="bg-purple-900 text-xs px-2 py-1 rounded-full" id="count-in-progress">0</span>
+                            </div>
+                            <div class="space-y-2" id="column-in-progress"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-80">
+                        <div class="kanban-column p-4" data-status="review">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-sm uppercase tracking-wider">👀 Review</h3>
+                                <span class="bg-yellow-900 text-xs px-2 py-1 rounded-full" id="count-review">0</span>
+                            </div>
+                            <div class="space-y-2" id="column-review"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-80">
+                        <div class="kanban-column p-4" data-status="done">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-sm uppercase tracking-wider">✅ Done</h3>
+                                <span class="bg-green-900 text-xs px-2 py-1 rounded-full" id="count-done">0</span>
+                            </div>
+                            <div class="space-y-2" id="column-done"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Project data parsed from the provided checklist
+        const projectData = [
+            { id: 1, name: "Complete Technical Identity Setup", day: 1, phase: "ANALYZE", priority: "high", assignee: "Tech Team", status: "backlog", type: "Macro" },
+            { id: 2, name: "Log into domain host", day: 1, phase: "ANALYZE", priority: "high", assignee: "Admin", status: "backlog", type: "Mini" },
+            { id: 3, name: "Navigate to Klaviyo Settings > Domains", day: 1, phase: "ANALYZE", priority: "high", assignee: "Admin", status: "backlog", type: "Mini" },
+            { id: 4, name: "Generate SPF, DKIM, and DMARC records", day: 1, phase: "ANALYZE", priority: "high", assignee: "Tech Team", status: "backlog", type: "Mini" },
+            { id: 5, name: "Copy generated records from Klaviyo", day: 1, phase: "ANALYZE", priority: "high", assignee: "Tech Team", status: "backlog", type: "Mini" },
+            { id: 6, name: "Paste and save records in DNS", day: 1, phase: "ANALYZE", priority: "high", assignee: "Tech Team", status: "backlog", type: "Mini" },
+            { id: 7, name: "Wait for DNS propagation", day: 1, phase: "ANALYZE", priority: "medium", assignee: "System", status: "backlog", type: "Mini" },
+            
+            { id: 8, name: "Complete List Cleaning", day: 2, phase: "ANALYZE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 9, name: "Verify domain authentication complete", day: 2, phase: "ANALYZE", priority: "high", assignee: "Tech Team", status: "backlog", type: "Mini" },
+            { id: 10, name: "Navigate to Klaviyo Segments", day: 2, phase: "ANALYZE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 11, name: "Create segment for inactive users", day: 2, phase: "ANALYZE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 12, name: "Set condition: On list 180+ days", day: 2, phase: "ANALYZE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 13, name: "Set condition: Opened 0 emails", day: 2, phase: "ANALYZE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 14, name: "Name segment appropriately", day: 2, phase: "ANALYZE", priority: "low", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 15, name: "Review segment count", day: 3, phase: "ANALYZE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 16, name: "Suppress/archive inactive profiles", day: 3, phase: "ANALYZE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 17, name: "Calculate new baseline open rate", day: 3, phase: "ANALYZE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 18, name: "Document before/after metrics", day: 3, phase: "ANALYZE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            
+            { id: 19, name: "Complete Master Email Template", day: 4, phase: "ANALYZE", priority: "high", assignee: "Design", status: "backlog", type: "Macro" },
+            { id: 20, name: "Gather brand assets", day: 4, phase: "ANALYZE", priority: "high", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 21, name: "Navigate to Klaviyo Templates", day: 4, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 22, name: "Create new template", day: 4, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 23, name: "Add logo to header", day: 4, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 24, name: "Apply brand colors", day: 4, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 25, name: "Set standard font", day: 4, phase: "ANALYZE", priority: "low", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 26, name: "Build footer with social icons", day: 5, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 27, name: "Add physical address to footer", day: 5, phase: "ANALYZE", priority: "high", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 28, name: "Add unsubscribe link", day: 5, phase: "ANALYZE", priority: "high", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 29, name: "Create placeholder content blocks", day: 5, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 30, name: "Save template as Master v1", day: 5, phase: "ANALYZE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 31, name: "Send test email", day: 5, phase: "ANALYZE", priority: "high", assignee: "Design", status: "backlog", type: "Mini" },
+            
+            { id: 32, name: "Complete 60-Day Strategy Map", day: 6, phase: "ANALYZE", priority: "high", assignee: "Strategy", status: "backlog", type: "Macro" },
+            { id: 33, name: "Open calendar tool", day: 6, phase: "ANALYZE", priority: "medium", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 34, name: "Mark all holidays", day: 6, phase: "ANALYZE", priority: "medium", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 35, name: "Identify product launches", day: 6, phase: "ANALYZE", priority: "high", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 36, name: "Note seasonal sales", day: 6, phase: "ANALYZE", priority: "medium", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 37, name: "Assign offers to campaign weeks", day: 7, phase: "ANALYZE", priority: "high", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 38, name: "Plan email frequency schedule", day: 7, phase: "ANALYZE", priority: "high", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 39, name: "Categorize evergreen content", day: 7, phase: "ANALYZE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 40, name: "Create backup campaign ideas", day: 7, phase: "ANALYZE", priority: "low", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 41, name: "Share strategy calendar with team", day: 7, phase: "ANALYZE", priority: "medium", assignee: "Strategy", status: "backlog", type: "Mini" },
+            
+            { id: 42, name: "Build Pop-Up Form and Welcome Flow", day: 8, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 43, name: "Decide on lead magnet offer", day: 8, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 44, name: "Navigate to Klaviyo Forms", day: 8, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 45, name: "Create new pop-up form", day: 8, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 46, name: "Design pop-up with branding", day: 8, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 47, name: "Set pop-up targeting rules", day: 8, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 48, name: "Integrate pop-up with website", day: 8, phase: "CREATE", priority: "high", assignee: "Tech Team", status: "backlog", type: "Mini" },
+            { id: 49, name: "Test pop-up submission", day: 8, phase: "CREATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            { id: 50, name: "Navigate to Klaviyo Flows", day: 9, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 51, name: "Create Welcome Series flow", day: 9, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 52, name: "Set flow trigger: Added to List", day: 9, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 53, name: "Build Email #1 - Immediate", day: 9, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 54, name: "Write Email #1 copy", day: 9, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 55, name: "Design Email #1", day: 9, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 56, name: "Add coupon code to Email #1", day: 9, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 57, name: "Build Email #2 - 1 day delay", day: 10, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 58, name: "Write Email #2: Brand Story", day: 10, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 59, name: "Design Email #2", day: 10, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 60, name: "Build Email #3 - 2 day delay", day: 10, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 61, name: "Write Email #3: Social Proof", day: 10, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 62, name: "Design Email #3", day: 10, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 63, name: "Set flow to Live", day: 10, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 64, name: "Test welcome flow end-to-end", day: 10, phase: "CREATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            
+            { id: 65, name: "Send First Warm-Up Campaign", day: 11, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 66, name: "Create segment: Opened in 30 days", day: 11, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 67, name: "Verify engaged segment size", day: 11, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 68, name: "Navigate to Campaigns", day: 11, phase: "CREATE", priority: "low", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 69, name: "Create new campaign email", day: 11, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 70, name: "Write subject line", day: 11, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 71, name: "Write campaign content", day: 11, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 72, name: "Design campaign email", day: 11, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 73, name: "Set recipient to engaged segment", day: 11, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 74, name: "Schedule send for 10 AM", day: 11, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 75, name: "Send test email", day: 11, phase: "CREATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            { id: 76, name: "Confirm send and monitor", day: 11, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 77, name: "Check campaign stats", day: 11, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            
+            { id: 78, name: "Complete Welcome Flow (Emails 4-5)", day: 12, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 79, name: "Review performance of Emails 1-3", day: 12, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 80, name: "Navigate to Welcome Flow", day: 12, phase: "CREATE", priority: "low", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 81, name: "Add Email #4 - 2 day delay", day: 12, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 82, name: "Write Email #4: Educational", day: 12, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 83, name: "Design Email #4", day: 13, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 84, name: "Add product usage visuals", day: 13, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 85, name: "Add Email #5 - 2 day delay", day: 13, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 86, name: "Write Email #5: Soft urgency", day: 13, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 87, name: "Design Email #5", day: 14, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 88, name: "Add countdown timer", day: 14, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 89, name: "Save Welcome Flow changes", day: 14, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 90, name: "Test updated flow", day: 14, phase: "CREATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            
+            { id: 91, name: "Build Abandoned Cart Flow", day: 15, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 92, name: "Create Abandoned Cart flow", day: 15, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 93, name: "Set trigger: Started Checkout", day: 15, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 94, name: "Add filter: Has not placed order", day: 15, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 95, name: "Build Cart Email #1 - 1 hour", day: 15, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 96, name: "Write Cart Email #1 copy", day: 15, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 97, name: "Design Cart Email #1", day: 16, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 98, name: "Add Complete Order CTA", day: 16, phase: "CREATE", priority: "high", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 99, name: "Build Cart Email #2 - 24 hours", day: 16, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 100, name: "Write Cart Email #2 with discount", day: 16, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 101, name: "Design Cart Email #2", day: 17, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 102, name: "Build Cart Email #3 - 24 hours", day: 17, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 103, name: "Write Cart Email #3: Last chance", day: 17, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 104, name: "Design Cart Email #3 with urgency", day: 17, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 105, name: "Set Abandoned Cart flow to Live", day: 18, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 106, name: "Test cart abandonment flow", day: 18, phase: "CREATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            { id: 107, name: "Monitor flow for 24 hours", day: 18, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            
+            { id: 108, name: "Send Second Warm-Up Campaign", day: 19, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 109, name: "Create segment: Opened in 60 days", day: 19, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 110, name: "Verify broader segment size", day: 19, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 111, name: "Create second campaign email", day: 19, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 112, name: "Write different subject line style", day: 19, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 113, name: "Write balanced content", day: 19, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 114, name: "Design second campaign", day: 19, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 115, name: "Set to broader segment", day: 19, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 116, name: "Schedule for different time", day: 19, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 117, name: "Send test and confirm", day: 19, phase: "CREATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            { id: 118, name: "Compare stats to Day 11", day: 19, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            
+            { id: 119, name: "Build Browse Abandonment Flow", day: 20, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 120, name: "Create Browse Abandonment flow", day: 20, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 121, name: "Set trigger: Viewed Product", day: 20, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 122, name: "Add filter: Did not add to cart", day: 20, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 123, name: "Build Browse Email #1 - 4 hours", day: 20, phase: "CREATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 124, name: "Write Browse Email #1 copy", day: 21, phase: "CREATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 125, name: "Design Browse Email #1", day: 21, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 126, name: "Add Shop Now CTA", day: 21, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 127, name: "Build Browse Email #2 - 24 hours", day: 22, phase: "CREATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 128, name: "Write Browse Email #2 with related products", day: 22, phase: "CREATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 129, name: "Design Browse Email #2", day: 23, phase: "CREATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 130, name: "Add flow filter to exclude purchasers", day: 23, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 131, name: "Set Browse flow to Live", day: 24, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 132, name: "Test browse abandonment flow", day: 24, phase: "CREATE", priority: "medium", assignee: "QA", status: "backlog", type: "Mini" },
+            
+            { id: 133, name: "Establish 3 Campaigns/Week Rhythm", day: 25, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 134, name: "Plan 3 campaign topics", day: 25, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 135, name: "Write and design Campaign #1", day: 25, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 136, name: "Schedule Campaign #1 Tuesday", day: 25, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 137, name: "Write and design Campaign #2", day: 26, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 138, name: "Schedule Campaign #2 Thursday", day: 26, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 139, name: "Write and design Campaign #3", day: 27, phase: "CREATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 140, name: "Schedule Campaign #3 Saturday", day: 27, phase: "CREATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 141, name: "Review all 3 campaign performance", day: 28, phase: "CREATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 142, name: "Adjust segment if needed", day: 28, phase: "CREATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 143, name: "Note best-performing topic", day: 28, phase: "CREATE", priority: "low", assignee: "Analytics", status: "backlog", type: "Mini" },
+            
+            { id: 144, name: "Build Post-Purchase Flows", day: 29, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 145, name: "Create Customer Thank You flow", day: 29, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 146, name: "Set trigger: Placed Order", day: 29, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 147, name: "Build Thank You Email #1", day: 29, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 148, name: "Write order confirmation copy", day: 29, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 149, name: "Design Thank You Email #1", day: 29, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 150, name: "Build Thank You Email #2", day: 30, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 151, name: "Write care instructions", day: 30, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 152, name: "Design Thank You Email #2", day: 30, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 153, name: "Build Thank You Email #3", day: 30, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 154, name: "Write review request copy", day: 30, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 155, name: "Design Thank You Email #3", day: 31, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 156, name: "Set Thank You flow to Live", day: 31, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 157, name: "Create Cross-Sell flow", day: 31, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 158, name: "Set Cross-Sell trigger with delay", day: 31, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 159, name: "Build Cross-Sell Email #1", day: 31, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 160, name: "Write product recommendation copy", day: 32, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 161, name: "Design Cross-Sell Email #1", day: 32, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 162, name: "Build Cross-Sell Email #2", day: 32, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 163, name: "Write limited offer copy", day: 32, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 164, name: "Design Cross-Sell Email #2", day: 32, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 165, name: "Set Cross-Sell flow to Live", day: 32, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 166, name: "Test both post-purchase flows", day: 32, phase: "ELEVATE", priority: "high", assignee: "QA", status: "backlog", type: "Mini" },
+            
+            { id: 167, name: "Build Winback & VIP Flows", day: 33, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 168, name: "Create Winback flow", day: 33, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 169, name: "Set Winback trigger", day: 33, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 170, name: "Build Winback Email #1", day: 33, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 171, name: "Write We miss you copy", day: 33, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 172, name: "Design Winback Email #1", day: 33, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 173, name: "Build Winback Email #2", day: 34, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 174, name: "Write What's new copy", day: 34, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 175, name: "Design Winback Email #2", day: 34, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 176, name: "Build Winback Email #3", day: 34, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 177, name: "Write 20% off copy", day: 34, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 178, name: "Design Winback Email #3", day: 35, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 179, name: "Build Winback Email #4", day: 35, phase: "ELEVATE", priority: "low", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 180, name: "Write Last chance copy", day: 35, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 181, name: "Design Winback Email #4", day: 35, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 182, name: "Set Winback flow to Live", day: 35, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 183, name: "Create VIP flow", day: 36, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 184, name: "Define VIP threshold", day: 36, phase: "ELEVATE", priority: "high", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 185, name: "Set VIP trigger", day: 36, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 186, name: "Build VIP Email #1", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 187, name: "Write Welcome to VIP copy", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 188, name: "Design VIP Email #1", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 189, name: "Build VIP Email #2", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 190, name: "Write VIP early access copy", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 191, name: "Design VIP Email #2", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 192, name: "Build VIP Email #3", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 193, name: "Write VIP support copy", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 194, name: "Design VIP Email #3", day: 36, phase: "ELEVATE", priority: "medium", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 195, name: "Set VIP flow to Live", day: 36, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            
+            { id: 196, name: "Establish 4 Campaigns/Week Routine", day: 37, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 197, name: "Friday Batch: Plan 4 topics", day: 37, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 198, name: "Write Campaign #1", day: 37, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 199, name: "Write Campaign #2", day: 37, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 200, name: "Write Campaign #3", day: 37, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 201, name: "Write Campaign #4", day: 37, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 202, name: "Design all 4 campaigns", day: 38, phase: "ELEVATE", priority: "high", assignee: "Design", status: "backlog", type: "Mini" },
+            { id: 203, name: "Schedule Campaign #1 Tuesday", day: 38, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 204, name: "Schedule Campaign #2 Thursday", day: 38, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 205, name: "Schedule Campaign #3 Saturday", day: 38, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 206, name: "Schedule Campaign #4 Sunday", day: 38, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 207, name: "Monitor Campaign #1", day: 39, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 208, name: "Monitor Campaign #2", day: 40, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 209, name: "Monitor Campaign #3", day: 41, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 210, name: "Monitor Campaign #4", day: 42, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 211, name: "Check weekly unsubscribe rate", day: 42, phase: "ELEVATE", priority: "high", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 212, name: "Friday Batch: Plan next 4 topics", day: 43, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 213, name: "Write and design next 4 campaigns", day: 43, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 214, name: "Schedule all 4 for upcoming week", day: 44, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 215, name: "Review 2-week performance", day: 45, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 216, name: "Document subject line patterns", day: 45, phase: "ELEVATE", priority: "low", assignee: "Analytics", status: "backlog", type: "Mini" },
+            
+            { id: 217, name: "Complete A/B Testing Sprint", day: 46, phase: "ELEVATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Macro" },
+            { id: 218, name: "Navigate to Welcome Email #1", day: 46, phase: "ELEVATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 219, name: "Enable A/B testing", day: 46, phase: "ELEVATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 220, name: "Create Version B", day: 46, phase: "ELEVATE", priority: "medium", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 221, name: "Write new subject line", day: 46, phase: "ELEVATE", priority: "high", assignee: "Content", status: "backlog", type: "Mini" },
+            { id: 222, name: "Set 50/50 split", day: 47, phase: "ELEVATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 223, name: "Set winning metric", day: 47, phase: "ELEVATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 224, name: "Set 7-day duration", day: 47, phase: "ELEVATE", priority: "medium", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 225, name: "Activate A/B test", day: 48, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" },
+            { id: 226, name: "Monitor test for 24 hours", day: 48, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 227, name: "Check test progress (Day 3)", day: 49, phase: "ELEVATE", priority: "low", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 228, name: "Review A/B results (Day 5)", day: 50, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 229, name: "Plan next A/B test", day: 50, phase: "ELEVATE", priority: "low", assignee: "Strategy", status: "backlog", type: "Mini" },
+            
+            { id: 230, name: "Complete Creative Refresh Analysis", day: 51, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Macro" },
+            { id: 231, name: "Export 30-day campaign data", day: 51, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 232, name: "Categorize campaigns by angle", day: 51, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 233, name: "Calculate average open rate by angle", day: 52, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 234, name: "Calculate average click rate by angle", day: 52, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 235, name: "Calculate revenue per send by angle", day: 52, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 236, name: "Identify top 3 angles", day: 53, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 237, name: "Identify worst-performing angle", day: 53, phase: "ELEVATE", priority: "low", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 238, name: "Check unsubscribe by angle", day: 54, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 239, name: "Plan next month calendar", day: 54, phase: "ELEVATE", priority: "high", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 240, name: "Share findings with team", day: 55, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 241, name: "Update Master Template", day: 55, phase: "ELEVATE", priority: "low", assignee: "Design", status: "backlog", type: "Mini" },
+            
+            { id: 242, name: "Complete Full Program Audit", day: 56, phase: "ELEVATE", priority: "high", assignee: "Leadership", status: "backlog", type: "Macro" },
+            { id: 243, name: "Calculate total email revenue", day: 56, phase: "ELEVATE", priority: "high", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 244, name: "Calculate revenue percentage", day: 56, phase: "ELEVATE", priority: "high", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 245, name: "Check 30% revenue benchmark", day: 56, phase: "ELEVATE", priority: "high", assignee: "Leadership", status: "backlog", type: "Mini" },
+            { id: 246, name: "Calculate overall list open rate", day: 57, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 247, name: "Calculate overall click rate", day: 57, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 248, name: "Calculate overall unsubscribe rate", day: 57, phase: "ELEVATE", priority: "high", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 249, name: "Review flow performance", day: 58, phase: "ELEVATE", priority: "high", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 250, name: "Identify underperforming flow", day: 58, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 251, name: "Review campaign frequency impact", day: 58, phase: "ELEVATE", priority: "medium", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 252, name: "Document wins", day: 59, phase: "ELEVATE", priority: "high", assignee: "Leadership", status: "backlog", type: "Mini" },
+            { id: 253, name: "Document leaks", day: 59, phase: "ELEVATE", priority: "high", assignee: "Leadership", status: "backlog", type: "Mini" },
+            { id: 254, name: "Create Days 61-120 action items", day: 59, phase: "ELEVATE", priority: "high", assignee: "Strategy", status: "backlog", type: "Mini" },
+            { id: 255, name: "Compile full audit report", day: 60, phase: "ELEVATE", priority: "high", assignee: "Analytics", status: "backlog", type: "Mini" },
+            { id: 256, name: "Share audit with stakeholders", day: 60, phase: "ELEVATE", priority: "high", assignee: "Leadership", status: "backlog", type: "Mini" },
+            { id: 257, name: "Celebrate wins with team", day: 60, phase: "ELEVATE", priority: "medium", assignee: "Leadership", status: "backlog", type: "Mini" },
+            { id: 258, name: "Set recurring Friday batch routine", day: 60, phase: "ELEVATE", priority: "high", assignee: "Marketing", status: "backlog", type: "Mini" }
+        ];
+
+        // Calculate deadlines (spread over 60 days from today)
+        const today = new Date();
+        projectData.forEach(task => {
+            const deadline = new Date(today);
+            deadline.setDate(deadline.getDate() + task.day);
+            task.deadline = deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+
+        // State management
+        let tasks = JSON.parse(JSON.stringify(projectData));
+
+        // Initialize dashboard
+        function initDashboard() {
+            renderKanbanBoard();
+            updateAllMetrics();
+            initChart();
+        }
+
+        // Render Kanban board
+        function renderKanbanBoard() {
+            const statuses = ['backlog', 'todo', 'in-progress', 'review', 'done'];
+            statuses.forEach(status => {
+                const column = document.getElementById(`column-${status}`);
+                column.innerHTML = '';
+                
+                const statusTasks = tasks.filter(t => t.status === status);
+                statusTasks.forEach(task => {
+                    const card = createTaskCard(task);
+                    column.appendChild(card);
+                });
+                
+                // Update count
+                document.getElementById(`count-${status}`).textContent = statusTasks.length;
+            });
+        }
+
+        // Create task card
+        function createTaskCard(task) {
+            const card = document.createElement('div');
+            card.className = `task-card priority-${task.priority}`;
+            card.draggable = true;
+            card.dataset.taskId = task.id;
+            
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-2">
+                    <span class="phase-badge phase-${task.phase.toLowerCase()}">${task.phase}</span>
+                    <span class="text-xs text-gray-500">Day ${task.day}</span>
+                </div>
+                <h4 class="text-sm font-semibold mb-2 leading-tight">${task.name}</h4>
+                <div class="flex items-center justify-between text-xs text-gray-400">
+                    <span>📅 ${task.deadline}</span>
+                    <span class="bg-gray-700 px-2 py-1 rounded">${task.assignee}</span>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    Priority: <span class="font-semibold text-${task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'yellow' : 'green'}-400">${task.priority.toUpperCase()}</span>
+                </div>
+            `;
+            
+            // Drag events
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+            
+            return card;
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        // Setup drag and drop
+        document.querySelectorAll('.kanban-column').forEach(column => {
+            column.addEventListener('dragover', handleDragOver);
+            column.addEventListener('drop', handleDrop);
+            column.addEventListener('dragenter', handleDragEnter);
+            column.addEventListener('dragleave', handleDragLeave);
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDragEnter(e) {
+            if (e.target.classList.contains('kanban-column') || e.target.closest('.kanban-column')) {
+                const column = e.target.classList.contains('kanban-column') ? e.target : e.target.closest('.kanban-column');
+                column.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            if (e.target.classList.contains('kanban-column')) {
+                e.target.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const column = e.target.classList.contains('kanban-column') ? e.target : e.target.closest('.kanban-column');
+            
+            if (column && draggedElement) {
+                column.classList.remove('drag-over');
+                const newStatus = column.dataset.status;
+                const taskId = parseInt(draggedElement.dataset.taskId);
+                
+                // Update task status
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.status = newStatus;
+                    renderKanbanBoard();
+                    updateAllMetrics();
+                }
+            }
+        }
+
+        // Update all metrics
+        function updateAllMetrics() {
+            updateOverallProgress();
+            updatePhaseProgress();
+            updateDaysRemaining();
+            updateStatusChart();
+        }
+
+        // Update overall progress
+        function updateOverallProgress() {
+            const totalTasks = tasks.length;
+            const completedTasks = tasks.filter(t => t.status === 'done').length;
+            const percentage = Math.round((completedTasks / totalTasks) * 100);
+            
+            document.getElementById('overall-progress').textContent = `${percentage}%`;
+            document.getElementById('overall-progress-bar').style.width = `${percentage}%`;
+            document.getElementById('progress-subtitle').textContent = `${completedTasks} of ${totalTasks} tasks completed`;
+        }
+
+        // Update phase progress
+        function updatePhaseProgress() {
+            const phases = ['ANALYZE', 'CREATE', 'ELEVATE'];
+            phases.forEach(phase => {
+                const phaseTasks = tasks.filter(t => t.phase === phase);
+                const completed = phaseTasks.filter(t => t.status === 'done').length;
+                const percentage = phaseTasks.length > 0 ? Math.round((completed / phaseTasks.length) * 100) : 0;
+                
+                document.getElementById(`${phase.toLowerCase()}-percent`).textContent = `${percentage}%`;
+                document.getElementById(`${phase.toLowerCase()}-bar`).style.width = `${percentage}%`;
+            });
+        }
+
+        // Update days remaining
+        function updateDaysRemaining() {
+            const startDate = new Date();
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 60);
+            
+            const today = new Date();
+            const daysLeft = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+            const daysPassed = 60 - daysLeft;
+            const percentage = Math.round((daysPassed / 60) * 100);
+            
+            document.getElementById('days-remaining').textContent = daysLeft;
+            document.getElementById('days-progress-bar').style.width = `${percentage}%`;
+            document.getElementById('days-subtitle').textContent = `${daysPassed} days elapsed of 60-day timeline`;
+        }
+
+        // Chart.js status distribution
+        let statusChart = null;
+
+        function initChart() {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#4B5563',
+                            '#1E40AF',
+                            '#7C3AED',
+                            '#D97706',
+                            '#059669'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStatusChart() {
+            if (statusChart) {
+                statusChart.data.datasets[0].data = [
+                    tasks.filter(t => t.status === 'backlog').length,
+                    tasks.filter(t => t.status === 'todo').length,
+                    tasks.filter(t => t.status === 'in-progress').length,
+                    tasks.filter(t => t.status === 'review').length,
+                    tasks.filter(t => t.status === 'done').length
+                ];
+                statusChart.update();
+            }
+        }
+
+        // Initialize on load
+        initDashboard();
+    </script>
+</body>
+</html>
